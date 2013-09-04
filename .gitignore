@@ -1,0 +1,25 @@
+# configuration files
+server/config.php
+
+# phpStorm
+.idea
+*.iml
+
+# Mac OS
+.DS_Store
+
+# just sane ignores
+.*.sw[po]
+*.bak
+*.BAK
+*~
+*.orig
+*.class
+.cvsignore
+Thumbs.db
+*.py[co]
+_darcs/*
+CVS/*
+.svn/*
+RCS/*
+*.backup*

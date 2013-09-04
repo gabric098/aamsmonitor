@@ -1,0 +1,62 @@
+<div class="masthead">
+  <h3 class="muted">AAMS Monitor</h3>
+
+  <div class="navbar">
+    <div class="navbar-inner">
+      <div class="container">
+        <ul class="nav">
+          <li ng-class="{'active': mode == 'qf'}"><a href="#/qf">Quota Fissa</a></li>
+          <li ng-class="{'active': mode == 'live'}"><a href="#/live">Live</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <!-- /.navbar -->
+</div>
+
+<div id="update-date" class="alert alert-info">
+  <strong>Ultimo aggiornamento:</strong> <span ng-bind="lastUpdate"></span>
+  <button class="btn btn-info btn-small" ng-click="refresh($event)" ng-disabled="!done"><i class="icon-white icon-refresh"></i> Refresh</button>
+</div>
+<div id="error-badge" class="alert alert-error" ng-show="errorMsg.length" ng-bind="errorMsg">
+</div>
+<div id="nores-badge" class="alert alert-warning" ng-show="!events.length">
+    Nessun evento nuovo o aggiornato.
+</div>
+<table class="table table-bordered" ng-hide="!events.length">
+  <thead>
+  <tr>
+    <th>Tipo</th>
+    <th>Categoria</th>
+    <th>Avvenimento</th>
+    <th>Data avvenimento</th>
+    <th>Programma</th>
+    <th>Num. Avv.</th>
+    <th><button class="btn-mini btn-warning" title="Segna tutti come processati" ng-click="markAllRead($event)">OK All</button></th>
+  </tr>
+  </thead>
+  <tfoot>
+  <tr>
+    <th>Tipo</th>
+    <th>Categoria</th>
+    <th>Avvenimento</th>
+    <th>Data avvenimento</th>
+    <th>Programma</th>
+    <th>Num. Avv.</th>
+    <th><button class="btn-mini btn-warning" title="Segna tutti come processati" ng-click="markAllRead($event)">OK All</button></th>
+  </tr>
+  </tfoot>
+  <tbody class="rowlink">
+  <tr ng-repeat="event in events | limitTo:50" ng-class="{'warning': event.status == '1', 'error': event.status == '2' }" events-table-loaded>
+    <td><a ng-href="http://www.aams.gov.it/site.php{{event.href}}" class="rowlink">{{event.category}}</a></td>
+    <td>{{event.sub_category}}</td>
+    <td><b>{{event.name}}</b></td>
+    <td class="center">{{event.aams_datetime}}</td>
+    <td class="center">{{event.aams_program_id}}</td>
+    <td class="center">{{event.aams_event_id}}</td>
+    <td class="nolink center">
+      <button ng-click="markAsRead($event, event.id)" class="btn btn-success btn-mini" title="Segna l'evento come processato"><i class="icon-white icon-ok-sign"></i> OK</button>
+    </td>
+  </tr>
+  </tbody>
+</table>
