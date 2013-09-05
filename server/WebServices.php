@@ -19,46 +19,65 @@
 require_once 'Constants.php';
 require_once 'ProcessManager.php';
 
-class WebServices {
+/**
+ * Class WebServices
+ *
+ * Defines a set of methods for interacting with AAMS Monitor. It's a kind of interface for web users
+ *
+ * @category    AAMS Monitor
+ * @copyright   Copyright (C) 2013  Gabriele Antonini (gabriele.antonini@gmail.com)
+ * @license     GNU General Public License
+ */
+class WebServices
+{
+    /** @var  $mysqli DbProvider */
+    private $mysqli;
 
-    private $db;
-
-    function __construct($db) {
-        $this->db = $db;
+    /**
+     * Initializes the WebServices object with a DbProvider instance
+     *
+     * @param $mysqli DbProvider The DbProvider instance
+     */
+    function __construct($mysqli)
+    {
+        $this->mysqli = $mysqli;
     }
 
+    /**
+     * Returns a JSON encoded string containing the list of all the changed/new
+     * "live" events found on db
+     *
+     * @return string The JSON encoded event list
+     */
     function getLiveEventsByStatus()
     {
-        $events = $this->db->getEventsByStatus(Constants::MODE_LIVE, array(DbProvider::STATUS_CHANGED, DbProvider::STATUS_NEW));
-        $eventsArr = array();
-        if ($events->num_rows > 0) {
-            while ($event = $events->fetch_object()) {
-                $eventsArr[$event->id] = $event;
-            }
-        }
-        mysqli_free_result($events);
-        return json_encode($eventsArr);
+        return $this->getChangedAndNewEvents(Constants::MODE_LIVE);
     }
 
+    /**
+     * Returns a JSON encoded string containing the list of all the changed/new
+     * "quota fissa" events found on db
+     *
+     * @return string The JSON encoded event list
+     */
     function getQfEventsByStatus()
     {
-        $events = $this->db->getEventsByStatus(Constants::MODE_QUOTA_FISSA, array(DbProvider::STATUS_CHANGED, DbProvider::STATUS_NEW));
-        $eventsArr = array();
-        if ($events->num_rows > 0) {
-            while ($event = $events->fetch_object()) {
-                $eventsArr[$event->id] = $event;
-            }
-        }
-        mysqli_free_result($events);
-        return json_encode($eventsArr);
+        return $this->getChangedAndNewEvents(Constants::MODE_QUOTA_FISSA);
     }
 
+    /**
+     * Sets a single event status to NORMAL (0).
+     * An error message is provided into the JSON response if the operation fails.
+     *
+     * @param $pkId int The events' primary key
+     * @return string The JSON encoded operation result
+     */
     function setEventAsRead($pkId)
     {
         $success = true;
         $niceErrMsg = '';
         try {
-            if ($this->db->updateEventStatus($pkId, DbProvider::STATUS_NORMAL) === false) {
+            if ($this->mysqli->updateEventStatus($pkId, DbProvider::STATUS_NORMAL) === false) {
                 $success = false;
                 $niceErrMsg = "Ahia... non riesco a cancellare il dato, prova ad aggiornare e provare ancora";
             }
@@ -72,26 +91,25 @@ class WebServices {
         return '{"success": true}';
     }
 
+    /**
+     * Sets all events with a given mode status to NORMAL (0).
+     * An error message is provided into the JSON response if the operation fails.
+     *
+     * @param $mode int The event mode
+     * @return string The JSON encoded operation result
+     */
     function setAllEventAsRead($mode)
     {
         $success = true;
         $niceErrMsg = '';
         try {
-            $res = $this->db->getProcessStatus($mode);
-            $resArr = $res->fetch_array();
-            if ($res->num_rows == 0 || $resArr['status'] == ProcessManager::STATUS_IDLE || $resArr['status'] == ProcessManager::STATUS_RUNNING) {
-                $res = $this->db->updateAllEventsStatus($mode, DbProvider::STATUS_NORMAL);
-                if ($res === true) {
-                    $success = true;
-                } else {
-                    $success = false;
-                    $niceErrMsg = "Ops... A quanto pare non riesco a cancellare i dati, riprova tra un attimo";
-                }
-            } else{
-                 $success = false;
-                 $niceErrMsg = "Solo un attimo... In questo momento sto aggiornado i dati sul database, potrai cancellare tutti gli eventi non appena avro' finito, riprova tra qualche minuto";
+            $res = $this->mysqli->updateAllEventsStatus($mode, DbProvider::STATUS_NORMAL);
+            if ($res === true) {
+                $success = true;
+            } else {
+                $success = false;
+                $niceErrMsg = "Ops... A quanto pare non riesco a cancellare i dati, riprova tra un attimo";
             }
-            // else
         } catch(Exception $e) {
             $success = false;
             $niceErrMsg = "Uhm... a quanto pare c'e' stato un errore non previsto";
@@ -102,6 +120,12 @@ class WebServices {
         return '{"success": true}';
     }
 
+    /**
+     * Returns a JSON formatted response containing the last update time for a given processor mode.
+     *
+     * @param $mode int The processor mode
+     * @return string The JSON encoded operation result
+     */
     function getLastUpdateTime($mode)
     {
         $success = true;
@@ -109,7 +133,7 @@ class WebServices {
         $lastUpdate = ' - ';
 
         try {
-            $events = $this->db->getLastUpdate($mode);
+            $events = $this->mysqli->getLastUpdate($mode);
             if ($events->num_rows > 0) {
                 $event = $events->fetch_object();
                 $lastUpdate = $event->last_finish;
@@ -125,7 +149,34 @@ class WebServices {
         return '{"success": true, "lastUpdate": "'.$lastUpdate.'"}';
     }
 
-    private function formatNiceError($msg) {
+    /**
+     * Utility function. It formats the error messages in a JSON format
+     *
+     * @param $msg string The error message
+     * @return string The JSON encoded string
+     */
+    private function formatNiceError($msg)
+    {
         return '{"success": false, "msg": "'.$msg.'"}';
+    }
+
+    /**
+     * Returns a JSON encoded string containing the list of all the changed/new
+     * events found on db for a given processor mode
+     *
+     * @param $mode int The processor mode
+     * @return string The JSON encoded event list
+     */
+    private function getChangedAndNewEvents($mode)
+    {
+        $events = $this->mysqli->getEventsByStatus($mode, array(DbProvider::STATUS_CHANGED, DbProvider::STATUS_NEW));
+        $eventsArr = array();
+        if ($events->num_rows > 0) {
+            while ($event = $events->fetch_object()) {
+                $eventsArr[$event->id] = $event;
+            }
+        }
+        mysqli_free_result($events);
+        return json_encode($eventsArr);
     }
 }

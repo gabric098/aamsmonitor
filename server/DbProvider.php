@@ -212,11 +212,11 @@ class DbProvider
     }
 
     /**
-     * Returns a resultset containing all events records in a given status (and mode).
+     * Returns a resultset containing all events records within a given status range (and mode).
      * It returns false if any error occurs.
      *
      * @param $mode int The event mode
-     * @param $status int The event status
+     * @param $status int[] The event statuses
      * @return bool|mysqli_result
      */
     public function getEventsByStatus($mode, $status)
