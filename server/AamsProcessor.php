@@ -56,6 +56,9 @@ class AamsProcessor {
         // ended using sub content dom, free memory
         $mainPage->clear();
         unset($mainPage);
+
+        // persists all the information to the database
+        $this->dbProcess();
         $this->log->info('AAMS info crawler ended @ ' . date('H:i:s'));
     }
 
@@ -148,7 +151,7 @@ class AamsProcessor {
         }
     }
 
-    public function dbProcess() {
+    private function dbProcess() {
         $this->log->info('dbProcess - Begin updating database, events found: ' . count($this->eventArray));
         $this->mysqli->updateEvents($this->eventArray);
         $this->log->info('dbProcess - Finished updating database');

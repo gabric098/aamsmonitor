@@ -18,70 +18,86 @@
 
 require_once 'AamsProcessor.php';
 
-class ProcessManager {
+/**
+ * Class ProcessManager
+ *
+ * Controls the crawling operations at a high level, it changes the process status in order to prevent
+ * the crawler runs more then once at a given time. It also manages the finish timestamp of the
+ * crawling operations.
+ *
+ * @category    AAMS Monitor
+ * @copyright   Copyright (C) 2013  Gabriele Antonini (gabriele.antonini@gmail.com)
+ * @license     GNU General Public License
+ */
+class ProcessManager
+{
+    /* @var int */
     private $mode;
+    /* @var MyLogPHP */
     private $log;
+    /* @var DBProvider */
     private $mysqli;
 
     const STATUS_IDLE = 0;
     const STATUS_RUNNING = 1;
-    const STATUS_DBUPDATE = 2;
 
-    function __construct($mode, $mysqlConn) {
+    /**
+     * Initializes ProcessManager object's proprieties and create a logger object.
+     *
+     * @param $mode int The crawling mode
+     * @param $mysqlConn DBProvider The db connection object
+     */
+    function __construct($mode, $mysqlConn)
+    {
         $this->mode = $mode;
         $this->log = new MyLogPHP('./log/log_' . $this->mode . '_'. date('Ymd') . '.csv');
         $this->mysqli = $mysqlConn;
         $this->mysqli->setLogger($this->log);
     }
 
-    public function process()   {
-            // set process flag to running
-            if ($this->setBeginProcess() == (string)$this::STATUS_RUNNING ) {
-                try {
-                    $this->run();
-                }catch (Exception $e) {
-                    $this->log->error("AAMS info crawler end with errors @ " . date('H:i:s'));
-                }
+    /**
+     * If no other processor is running, runs it.
+     */
+    public function process()
+    {
+        // set process flag to running
+        if ($this->setBeginProcess() == (string)$this::STATUS_RUNNING ) {
+            try {
+                $this->run();
+            }catch (Exception $e) {
+                $this->log->error("AAMS info crawler end with errors @ " . date('H:i:s'));
+            }
 
             // set process flag to idle
             $this->setEndProcess();
         } else {
-            $this->log->error("Process for mode " . $this->mode . " already runnning.");
+            $this->log->error("Process for mode " . $this->mode . " already running.");
         }
     }
 
     /**
-     * This function calls the beginProcess stored procedure.
+     * Invokes the the beginProcess method on the database connection object.
      * It returns 1 if the process has been correctly opened or 0
      * if the process is still running
+     *
+     * @return string '0' if the processor is running '1' if the processor is idle
      */
     private function setBeginProcess() {
         return ($this->mysqli->beginProcess($this->mode));
     }
 
     /**
-     * This function call setDbUpdateProcessStatus
-     * @return int
-     */
-    private function setDbUpdateProcess() {
-        return ($this->mysqli->setDbUpdateProcessStatus($this->mode));
-    }
-
-    /**
-     * This function call endProcess
+     * Invokes the the beginProcess method on the database connection object.
      */
     private function setEndProcess() {
         $this->mysqli->endProcess($this->mode);
     }
 
+    /**
+     * Instantiates the requested processor and execute the run method on it
+     */
     private function run() {
         $processor = new AamsProcessor($this->mode, $this->log, $this->mysqli);
         $processor->run();
-        if ($this->setDbUpdateProcess() == '1') {
-            $processor->dbProcess();
-        } else {
-            $this->log->error("Unable to update process status to 2");
-            throw new Exception("Unable to update process status to 2");
-        }
     }
 }
