@@ -133,15 +133,15 @@ class DbProvider
             $stmt = $this->mysqli->prepare("call updateEvent(?,?,?,?,?,?,?,?,?)");
             $stmt->bind_param("iiissssss", $p1, $p2, $p3, $p4, $p5, $p6, $p7, $p8, $p9);
             foreach($eventsArray as $event) {
-                $p1 = $event->mode;
-                $p2 = $event->aams_event_id;
-                $p3 = $event->aams_program_id;
-                $p4 = $event->name;
-                $p5 = $event->href;
-                $p6 = $event->dateTime;
-                $p7 = $event->category;
-                $p8 = $event->subCategory;
-                $p9 = $event->hash;
+                $p1 = $event->getMode();
+                $p2 = $event->getAamsEventId();
+                $p3 = $event->getAamsProgramId();
+                $p4 = $event->getName();
+                $p5 = $event->getHref();
+                $p6 = $event->getDateTime();
+                $p7 = $event->getCategory();
+                $p8 = $event->getSubCategory();
+                $p9 = $event->getHash();
                 $stmt->execute();
             }
             $stmt->close();

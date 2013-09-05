@@ -48,7 +48,7 @@ class AamsProcessor {
         // check if relevant div exists
         $contentDiv = ($this->mode == Constants::MODE_QUOTA_FISSA) ? $contDiv[0] : $contDiv[1];
         if (!isset($contentDiv)) {
-            suicide("Cannot locate mode " . $this->mode . " content");
+            $this->suicide("Cannot locate mode " . $this->mode . " content");
         }
 
         $this->parseMainCat($contentDiv);
@@ -103,7 +103,7 @@ class AamsProcessor {
         $events = array();
         $eventTable = $subContent->find(".risultatiTotocalcio");
         if (!isset($eventTable)) {
-            suicide("Cannot locate .risultatiTotocalcio table");
+            $this->suicide("Cannot locate .risultatiTotocalcio table");
         }
         foreach($eventTable[0]->children(0)->children as $row) {
             if ($row->tag == 'tr' && $row->children(0)->tag == 'td') {
@@ -126,22 +126,22 @@ class AamsProcessor {
                 $eventDetailContent = $this->get_url(self::BASE_URL . $eventHref);
                 $detailTable = $eventDetailContent->find('.risultatiTotocalcio');
                 if (!isset($detailTable)) {
-                    suicide("Cannot locate .risultatiTotocalcio table for details");
+                    $this->suicide("Cannot locate .risultatiTotocalcio table for details");
                 }
                 // and I calculate the page hash
                 $theHash = md5($detailTable[0]->plaintext);
 
                 // now that I got a bunch of data, I store it in an object
                 $event = new AamsEvent();
-                $event->aams_event_id = $eventId;
-                $event->dateTime = $eventDateTime;
-                $event->href = $eventHref;
-                $event->name = $eventName;
-                $event->aams_program_id = $programId;
-                $event->hash = $theHash;
-                $event->mode = $this->mode;
-                $event->category = $mainCategory;
-                $event->subCategory = $subCategory;
+                $event->setAamsEventId($eventId);
+                $event->setDateTime($eventDateTime);
+                $event->setHref($eventHref);
+                $event->setName($eventName);
+                $event->setAamsProgramId($programId);
+                $event->setHash($theHash);
+                $event->setMode($this->mode);
+                $event->setCategory($mainCategory);
+                $event->setSubCategory($subCategory);
 
                 $this->eventArray[] = $event;
                 // ended event detail content dom, free memory
