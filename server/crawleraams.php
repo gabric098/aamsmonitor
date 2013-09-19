@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-require_once "lib/simple_html_dom.php";
 require_once "lib/logger.class.php";
 require_once "AamsEvent.php";
 require_once "DbProvider.php";

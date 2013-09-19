@@ -38,23 +38,20 @@ class AamsProcessor {
 
         // get the main page content
         $mainPage = $this->get_url(self::BASE_URL . '?id=2863');
-        $contDiv = $mainPage->find('.portaboxInterna');
 
-        // check if the .portaboxInterna div exists
-        if (!isset($contDiv)) {
-            $this->suicide("Cannot locate .portaboxInterna");
-        }
+        // builds the xPath to locate relevant content
+        $xpath = new DOMXpath($mainPage);
+        $contentDivId = ($this->mode == Constants::MODE_QUOTA_FISSA) ? 'portaboxInternaSx' : 'portaboxInternaDx1';
+        $contentDiv = $xpath->query("//div[@id = '" . $contentDivId . "']");
 
-        // check if relevant div exists
-        $contentDiv = ($this->mode == Constants::MODE_QUOTA_FISSA) ? $contDiv[0] : $contDiv[1];
-        if (!isset($contentDiv)) {
+        // check if the div exists
+        if ($contentDiv->length != 1) {
             $this->suicide("Cannot locate mode " . $this->mode . " content");
         }
 
-        $this->parseMainCat($contentDiv);
+        $this->parseMainCat($contentDiv->item(0));
 
         // ended using sub content dom, free memory
-        $mainPage->clear();
         unset($mainPage);
 
         // persists all the information to the database
@@ -62,31 +59,46 @@ class AamsProcessor {
         $this->log->info('AAMS info crawler ended @ ' . date('H:i:s'));
     }
 
-    // This function assumes that the page has the following html structure:
-    // <h5> Event general category </h5>
-    // <ul>
-    // <li><a href="">Event detail category</a></li>
-    // </ul>
+    /**
+     * Parses AAMS main page DOM content and extract the events list
+     *
+     * @param $content DOMNode
+     */
     private function parseMainCat($content) {
         $mainCategory = '';
-        foreach ($content->children as $chidNode) {
-            if ($chidNode->tag == 'h5') {
-                $mainCategory = $this->normalizeData($chidNode->innertext, self::DATA_TYPE_TEXT);
+        $contentChildren = $content->childNodes;
+        foreach ($contentChildren as $childNode) {
+            /* @var $childNode DOMNode */
+            if ($childNode->nodeName == 'h5') {
+                $mainCategory = $this->normalizeData($childNode->nodeValue, self::DATA_TYPE_TEXT);
             }
-            if ($chidNode->tag == 'ul') {
-                foreach($chidNode->children as $lis){
-                    $subCategory = $this->normalizeData($lis->children(0)->innertext, self::DATA_TYPE_TEXT);
-                    $subCategoryHref = $this->normalizeData($lis->children(0)->href, self::DATA_TYPE_HREF);
-                    $subContent = $this->get_url((self::BASE_URL . $subCategoryHref));
-                    $this->parseSubCat($subContent, $mainCategory, $subCategory);
-                    // ended using sub content dom, free memory
-                    $subContent->clear();
-                    unset($subContent);
+            if ($childNode->nodeName == 'ul') {
+                foreach($childNode->childNodes as $lis){
+                    /* @var $lis DOMNode */
+                    if ($lis->nodeType === XML_ELEMENT_NODE) {
+                        foreach ($lis->childNodes as $li) {
+                            /* @var $li DOMElement */
+                            if ($li->nodeType === XML_ELEMENT_NODE) {
+                                // get the <a> node
+                                $subCategory = $this->normalizeData($li->nodeValue, self::DATA_TYPE_TEXT);
+                                $subCategoryHref = $this->normalizeData($li->getAttribute('href'), self::DATA_TYPE_HREF);
+                                $subContent = $this->get_url((self::BASE_URL . $subCategoryHref));
+                                $this->parseSubCat($subContent, $mainCategory, $subCategory);
+                                // ended using sub content dom, free memory
+                                unset($subContent);
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
+    /**
+     * @param $subContent DOMNode
+     * @param $mainCategory string
+     * @param $subCategory string
+     */
     // This function assumes that the page has the following html structure:
     // <table class="risultatiTotocalcio">
     // <tr>
@@ -101,35 +113,55 @@ class AamsProcessor {
     // </table>
     private function parseSubCat($subContent, $mainCategory, $subCategory) {
         $events = array();
-        $eventTable = $subContent->find(".risultatiTotocalcio");
-        if (!isset($eventTable)) {
-            $this->suicide("Cannot locate .risultatiTotocalcio table");
+
+        // builds the xPath to locate relevant content
+        $xpath = new DOMXpath($subContent);
+        $eventTableList = $xpath->query("//table[@class = 'risultatiTotocalcio']");
+
+        // check if the div exists
+        if ($eventTableList->length != 1) {
+            $this->suicide("Cannot locate risultatiTotocalcio table");
         }
-        foreach($eventTable[0]->children(0)->children as $row) {
-            if ($row->tag == 'tr' && $row->children(0)->tag == 'td') {
+
+
+        foreach($eventTableList->item(0)->childNodes->item(0)->childNodes as $row) {
+            /* @var $row DOMNode */
+            if ($row->nodeName == 'tr' && $row->childNodes->item(0)->nodeName == 'td') {
+                $columns = $row->childNodes;
 
                 // this is an event row
                 // first td is event name and link
-                $eventHref = $this->normalizeData($row->children(0)->children(0)->href, self::DATA_TYPE_HREF);
-                $eventName = $this->normalizeData($row->children(0)->children(0)->innertext, self::DATA_TYPE_TEXT);
+                $firstTd = $columns->item(0);
+                $eventHref = $this->normalizeData($firstTd->childNodes->item(0)->getAttribute('href'), self::DATA_TYPE_HREF);
+                $eventName = $this->normalizeData($firstTd->childNodes->item(0)->nodeValue, self::DATA_TYPE_TEXT);
 
                 // 2nd td is date and time
-                $eventDateTime = $this->normalizeData($row->children(1)->innertext, self::DATA_TYPE_TEXT);
+                $secondTd = $columns->item(2);
+                $eventDateTime = $this->normalizeData($secondTd->nodeValue, self::DATA_TYPE_TEXT);
 
                 // 3rd td is program id
-                $programId = $this->normalizeData($row->children(2)->innertext, self::DATA_TYPE_TEXT);
+                $thirdTd = $columns->item(4);
+                $programId = $this->normalizeData($thirdTd->nodeValue, self::DATA_TYPE_TEXT);
 
                 // 4th td is event id
-                $eventId = $this->normalizeData($row->children(3)->innertext, self::DATA_TYPE_TEXT);
+                $fourthTd = $columns->item(6);
+                $eventId = $this->normalizeData($fourthTd->nodeValue, self::DATA_TYPE_TEXT);
 
                 // I get the event detail page
                 $eventDetailContent = $this->get_url(self::BASE_URL . $eventHref);
-                $detailTable = $eventDetailContent->find('.risultatiTotocalcio');
-                if (!isset($detailTable)) {
-                    $this->suicide("Cannot locate .risultatiTotocalcio table for details");
+
+                // builds the xPath to locate relevant content
+                $xpath = new DOMXpath($eventDetailContent);
+                $detailTableList = $xpath->query("//table[@class = 'risultatiTotocalcio']");
+
+                // check if the div exists
+                if ($detailTableList->length != 1) {
+                    $this->suicide("Cannot locate risultatiTotocalcio table in detail page");
                 }
-                // and I calculate the page hash
-                $theHash = md5($detailTable[0]->plaintext);
+
+                // and I calculate the detail table hash
+                $detalTable = $detailTableList->item(0);
+                $theHash = md5($detalTable->ownerDocument->saveXML($detalTable));
 
                 // now that I got a bunch of data, I store it in an object
                 $event = new AamsEvent();
@@ -145,7 +177,6 @@ class AamsProcessor {
 
                 $this->eventArray[] = $event;
                 // ended event detail content dom, free memory
-                $eventDetailContent->clear();
                 unset($eventDetailContent);
             }
         }
@@ -157,15 +188,25 @@ class AamsProcessor {
         $this->log->info('dbProcess - Finished updating database');
     }
 
+    /**
+     * Loads given url contents and parses it to a DOMDocument object
+     * @param $url
+     * @return DOMDocument
+     */
     private function get_url($url) {
         $this->log->info('get_url - Reading url: ' . $url);
+        $doc = new DOMDocument('1.0');
         $context = stream_context_create();
         stream_context_set_params($context, array('user_agent' => 'Mozilla/6.0 (Windows NT 6.2; WOW64; rv:16.0.1) Gecko/20121011 Firefox/16.0.1'));
-        $toReturn = file_get_html($url, 0, $context);
-        if ($toReturn === false) {
+        libxml_set_streams_context($context);
+
+        // Request the file through HTTP, suppressing warnings in case of malformed HTML
+        $result = @$doc->loadHTMLFile($url);
+
+        if ($result === false) {
             $this->log->error('get_url - Error reading url: ' . $url);
         }
-        return $toReturn;
+        return $doc;
     }
 
     private function suicide($msg) {
