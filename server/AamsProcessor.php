@@ -16,24 +16,53 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-class AamsProcessor {
+/**
+ * Class AamsProcessor
+ *
+ * This class takes care of crawl AAMS website and get all the relevant information.
+ * The only way to do that is parsing HTML pages and identify relevant data, for this
+ * reason this class behaviour is deeply dependent on the AAMS site structure. Unfortunately
+ * there's no other way (that I'm aware of) to make this data available in a more standard
+ * format.
+ *
+ * @category    AAMS Monitor
+ * @copyright   Copyright (C) 2013  Gabriele Antonini (gabriele.antonini@gmail.com)
+ * @license     GNU General Public License*
+ */
+class AamsProcessor
+{
+    /** @var $mode string */
     private $mode;
+    /** @var $mode MyLogPHP */
     private $log;
+    /** @var $mode DbProvider */
     private $mysqli;
 
     const BASE_URL = "http://www.aams.gov.it/site.php";
-
     const DATA_TYPE_HREF = 0;
     const DATA_TYPE_TEXT = 1;
 
-    function __construct($mode, $log, $mysqli) {
+    /**
+     * Initializes the class with the logger and the database connection
+     *
+     * @param $mode int processing mode (live or quotafissa)
+     * @param $log MyLogPHP logger instance
+     * @param $mysqli mysqli database connection
+     */
+    function __construct($mode, $log, $mysqli)
+    {
         $this->mode = $mode;
         $this->log = $log;
         $this->mysqli = $mysqli;
         $this->eventArray = array();
     }
 
-    public function run() {
+    /**
+     * Begins the crawling operation, process recursively the event pages and finally
+     * call the dbProcess() method to save the data into the database
+     */
+    public function run()
+    {
         $this->log->info('AAMS info crawler started @ ' . date('H:i:s'));
 
         // get the main page content
@@ -49,6 +78,7 @@ class AamsProcessor {
             $this->suicide("Cannot locate mode " . $this->mode . " content");
         }
 
+        // processes the main page relevant content
         $this->parseMainCat($contentDiv->item(0));
 
         // ended using sub content dom, free memory
@@ -60,11 +90,12 @@ class AamsProcessor {
     }
 
     /**
-     * Parses AAMS main page DOM content and extract the events list
+     * Parses AAMS main page DOM content and extracts the events list
      *
-     * @param $content DOMNode
+     * @param $content DOMNode the main page content
      */
-    private function parseMainCat($content) {
+    private function parseMainCat($content)
+    {
         $mainCategory = '';
         $contentChildren = $content->childNodes;
         foreach ($contentChildren as $childNode) {
@@ -95,25 +126,15 @@ class AamsProcessor {
     }
 
     /**
-     * @param $subContent DOMNode
-     * @param $mainCategory string
-     * @param $subCategory string
+     * Processes a sub category page retrieving all the events' specific info
+     * All event objects are stored into eventArray array
+     *
+     * @param $subContent DOMNode the sub category page content
+     * @param $mainCategory string main category name
+     * @param $subCategory string sub category name
      */
-    // This function assumes that the page has the following html structure:
-    // <table class="risultatiTotocalcio">
-    // <tr>
-    //   <th></th>
-    // </tr>
-    // <tr>
-    //   <td><a href="">Nome evento</a></td>
-    //   <td>Data e ora</td>
-    //   <td>Programma</td>
-    //   <td>Numero Avvenimento</td>
-    // </tr>
-    // </table>
-    private function parseSubCat($subContent, $mainCategory, $subCategory) {
-        $events = array();
-
+    private function parseSubCat($subContent, $mainCategory, $subCategory)
+    {
         // builds the xPath to locate relevant content
         $xpath = new DOMXpath($subContent);
         $eventTableList = $xpath->query("//table[@class = 'risultatiTotocalcio']");
@@ -122,7 +143,6 @@ class AamsProcessor {
         if ($eventTableList->length != 1) {
             $this->suicide("Cannot locate risultatiTotocalcio table");
         }
-
 
         foreach($eventTableList->item(0)->childNodes->item(0)->childNodes as $row) {
             /* @var $row DOMNode */
@@ -182,7 +202,12 @@ class AamsProcessor {
         }
     }
 
-    private function dbProcess() {
+    /**
+     * Invokes the updateEvents method on the database adapter passing the events list as
+     * parameter. The events list is saved to database
+     */
+    private function dbProcess()
+    {
         $this->log->info('dbProcess - Begin updating database, events found: ' . count($this->eventArray));
         $this->mysqli->updateEvents($this->eventArray);
         $this->log->info('dbProcess - Finished updating database');
@@ -190,10 +215,12 @@ class AamsProcessor {
 
     /**
      * Loads given url contents and parses it to a DOMDocument object
-     * @param $url
-     * @return DOMDocument
+     *
+     * @param $url string The url to load
+     * @return DOMDocument The DOM object representing the loaded page content
      */
-    private function get_url($url) {
+    private function get_url($url)
+    {
         $this->log->info('get_url - Reading url: ' . $url);
         $doc = new DOMDocument('1.0');
         $context = stream_context_create();
@@ -209,11 +236,26 @@ class AamsProcessor {
         return $doc;
     }
 
-    private function suicide($msg) {
+    /**
+     * In case of problem, throw an exception
+     *
+     * @param $msg string The exception message
+     * @throws Exception
+     */
+    private function suicide($msg)
+    {
         throw new Exception($msg);
     }
 
-    private function normalizeData($dataStr, $dataType) {
+    /**
+     * Sanitizes a bit the data coming from the web pages depending on the data type
+     *
+     * @param $dataStr string the data to sanitize
+     * @param $dataType in the data type
+     * @return string the sanitized data
+     */
+    private function normalizeData($dataStr, $dataType)
+    {
         switch ($dataType) {
             case (self::DATA_TYPE_HREF):
                 return str_replace(' ', '%20', trim(html_entity_decode($dataStr)));

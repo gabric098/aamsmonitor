@@ -16,7 +16,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-class Constants {
+/**
+ * Class Constants
+ *
+ * Contains some constants used across the application
+ *
+ * @category    AAMS Monitor
+ * @copyright   Copyright (C) 2013  Gabriele Antonini (gabriele.antonini@gmail.com)
+ * @license     GNU General Public License
+ */
+class Constants
+{
     const MODE_QUOTA_FISSA = 0;
     const MODE_LIVE = 1;
 }

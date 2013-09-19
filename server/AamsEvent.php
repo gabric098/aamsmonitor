@@ -20,6 +20,10 @@
  * Class AamsEvent
  *
  * A "bean-like" class representing an Event object
+ *
+ * @category    AAMS Monitor
+ * @copyright   Copyright (C) 2013  Gabriele Antonini (gabriele.antonini@gmail.com)
+ * @license     GNU General Public License
  */
 class AamsEvent
 {
