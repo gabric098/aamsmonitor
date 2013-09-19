@@ -61,7 +61,7 @@ class ProcessManager
     public function process()
     {
         // set process flag to running
-        if ($this->setBeginProcess() == (string)$this::STATUS_RUNNING ) {
+        if ($this->setBeginProcess() == (string)ProcessManager::STATUS_RUNNING ) {
             try {
                 $this->run();
             }catch (Exception $e) {
