@@ -260,7 +260,7 @@ class AamsProcessor
             case (self::DATA_TYPE_HREF):
                 return str_replace(' ', '%20', trim(html_entity_decode($dataStr)));
             case (self::DATA_TYPE_TEXT):
-                return trim(html_entity_decode($dataStr));
+                return str_replace(array("\xC2", "\xA0", "\x09"), '', trim(html_entity_decode($dataStr)));
             default:
                 return $dataStr;
         }
